@@ -67,20 +67,20 @@ public class AuthorizationFilter implements Filter {
 		if (isEndPointMatch(request.getServletPath(), "/forum/post/\\w+/?")) {
 			if ("POST".equalsIgnoreCase(request.getMethod())) {
 				if (!request.getUserPrincipal().getName().equals(getParamFromPath(request.getServletPath()))) {
-					response.sendError(403);
+					response.sendError(403, "Authorization error");
 					return;
 				}
 			}
 			if ("DELETE".equalsIgnoreCase(request.getMethod())) {
 				Post post = forumRepository.findById(getParamFromPath(request.getServletPath())).orElse(null);
 				if (post == null) {
-					response.sendError(403, "Not found");
+					response.sendError(403, "Post not found");
 					return;
 				}
 				if (!request.getUserPrincipal().getName().equals(post.getAuthor())) {
 					Account userAccount = userRepository.findById(request.getUserPrincipal().getName()).get();
 					if (!userAccount.getRoles().contains("Moderator".toUpperCase())) {
-						response.sendError(403);
+						response.sendError(403, "Moderator rights required");
 						return;
 					}
 				}
@@ -88,11 +88,11 @@ public class AuthorizationFilter implements Filter {
 			if ("PUT".equalsIgnoreCase(request.getMethod())) {
 				Post post = forumRepository.findById(getParamFromPath(request.getServletPath())).orElse(null);
 				if (post == null) {
-					response.sendError(403, "Not found");
+					response.sendError(403, "Post not found");
 					return;
 				}
 				if (!request.getUserPrincipal().getName().equals(post.getAuthor())) {
-					response.sendError(403);
+					response.sendError(403, "Forbidden to change");
 					return;
 				}
 			}
@@ -112,9 +112,7 @@ public class AuthorizationFilter implements Filter {
 
 	private String getParamFromPath(String servletPath) {
 		String[] pathArray = servletPath.split("/");
-		return pathArray[pathArray.length - 1].length() > 0 ? 
-				pathArray[pathArray.length - 1] :
-				pathArray[pathArray.length - 2];
+		return pathArray[pathArray.length - 1];
 	}
 
 	private boolean isEndPointMatch(String servletPath, String regex) {

@@ -1,6 +1,5 @@
 package telran.java40.accounting.service;
 
-import telran.java40.accounting.dto.PasswordUpdateDto;
 import telran.java40.accounting.dto.RolesResponseDto;
 import telran.java40.accounting.dto.UserAccountResponseDto;
 import telran.java40.accounting.dto.UserRegisterDto;
