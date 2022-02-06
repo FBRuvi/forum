@@ -39,7 +39,7 @@ public class AuthorizationFilter implements Filter {
 		HttpServletRequest request = (HttpServletRequest) req;
 		HttpServletResponse response = (HttpServletResponse) resp;
 		
-//		Administrator`s endPoint
+//		Administrator`s endPoint (change roles)
 		if (isEndPointMatch(request.getServletPath(), "/account/user/\\w+/role/\\w+/?")) {
 			Account userAccount = userRepository.findById(request.getUserPrincipal().getName()).get();
 			if (!userAccount.getRoles().contains("Administrator".toUpperCase())) {
@@ -98,21 +98,38 @@ public class AuthorizationFilter implements Filter {
 			}
 		}
 		
-//		Add Comment
+//		Add Comment (From own name only)
 		if (isEndPointMatch(request.getServletPath(), "/forum/post/\\w+/comment/\\w+/?")) {
 			if (!request.getUserPrincipal().getName().equals(getParamFromPath(request.getServletPath()))) {
-				response.sendError(403);
+				response.sendError(403, "Action forbidden");
 				return;
 			}
 			
 		}
 		
+//		Add like (Block for autoLike)
+		if (isEndPointMatch(request.getServletPath(), "/forum/post/\\w+/like/?")) {
+			Post post = forumRepository.findById(getParamFromPath(request.getServletPath(), 3)).orElse(null);
+			if (post == null) {
+				response.sendError(403, "Post not found");
+				return;
+			}
+			if (request.getUserPrincipal().getName().equals(post.getAuthor())) {
+				response.sendError(403, "Action forbidden");
+				return;
+			}
+		}
+		
 		chain.doFilter(request, response);
 	}
 
-	private String getParamFromPath(String servletPath) {
+	private String getParamFromPath(String servletPath, int index) {
 		String[] pathArray = servletPath.split("/");
-		return pathArray[pathArray.length - 1];
+		return pathArray[index];
+	}
+	
+	private String getParamFromPath(String servletPath) {
+		return getParamFromPath(servletPath, servletPath.split("/").length - 1);
 	}
 
 	private boolean isEndPointMatch(String servletPath, String regex) {
