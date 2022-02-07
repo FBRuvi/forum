@@ -14,21 +14,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Service;
 
-import telran.java40.accounting.dao.AccountRepository;
-import telran.java40.accounting.model.Account;
 import telran.java40.forum.dao.PostRepository;
 import telran.java40.forum.model.Post;
+import telran.java40.security.SecurityContext;
+import telran.java40.security.UserProfile;
 
 @Service
 @Order(20)
 public class AuthorizationFilter implements Filter {
 
-	AccountRepository userRepository;
+//	AccountRepository userRepository;
+	SecurityContext securityContext;
 	PostRepository forumRepository;
 
 	@Autowired
-	public AuthorizationFilter(AccountRepository userRepository, PostRepository forumRepository) {
-		this.userRepository = userRepository;
+	public AuthorizationFilter(SecurityContext securityContext, PostRepository forumRepository) {
+		this.securityContext = securityContext;
 		this.forumRepository = forumRepository;
 	}
 
@@ -41,8 +42,8 @@ public class AuthorizationFilter implements Filter {
 		
 //		Administrator`s endPoint (change roles)
 		if (isEndPointMatch(request.getServletPath(), "/account/user/\\w+/role/\\w+/?")) {
-			Account userAccount = userRepository.findById(request.getUserPrincipal().getName()).get();
-			if (!userAccount.getRoles().contains("Administrator".toUpperCase())) {
+			UserProfile userProfile = securityContext.getUser(request.getUserPrincipal().getName());
+			if (!userProfile.getRoles().contains("Administrator".toUpperCase())) {
 				response.sendError(403, "Admin rights required");
 				return;
 			}
@@ -50,13 +51,13 @@ public class AuthorizationFilter implements Filter {
 		
 //		Update User or Delete User
 		if (isEndPointMatch(request.getServletPath(), "/account/user/\\w+/?")) {
-			Account userAccount = userRepository.findById(request.getUserPrincipal().getName()).get();
+			UserProfile userProfile = securityContext.getUser(request.getUserPrincipal().getName());
 			if (!request.getUserPrincipal().getName().equals(getParamFromPath(request.getServletPath()))) {
 				if ("PUT".equalsIgnoreCase(request.getMethod())) {
 					response.sendError(403);
 					return;
 				}
-				if (!userAccount.getRoles().contains("Administrator".toUpperCase())) {
+				if (!userProfile.getRoles().contains("Administrator".toUpperCase())) {
 					response.sendError(403, "Admin rights required");
 					return;
 				}
@@ -78,8 +79,8 @@ public class AuthorizationFilter implements Filter {
 					return;
 				}
 				if (!request.getUserPrincipal().getName().equals(post.getAuthor())) {
-					Account userAccount = userRepository.findById(request.getUserPrincipal().getName()).get();
-					if (!userAccount.getRoles().contains("Moderator".toUpperCase())) {
+					UserProfile userProfile = securityContext.getUser(request.getUserPrincipal().getName());
+					if (!userProfile.getRoles().contains("Moderator".toUpperCase())) {
 						response.sendError(403, "Moderator rights required");
 						return;
 					}

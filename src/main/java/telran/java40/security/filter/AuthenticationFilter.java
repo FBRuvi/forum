@@ -20,16 +20,24 @@ import org.springframework.stereotype.Service;
 
 import telran.java40.accounting.dao.AccountRepository;
 import telran.java40.accounting.model.Account;
+import telran.java40.security.SecurityContext;
+import telran.java40.security.UserProfile;
+import telran.java40.security.service.SessionService;
 
 @Service
 @Order(10)
 public class AuthenticationFilter implements Filter {
 
 	AccountRepository repository;
+	SecurityContext securityContext;
+	SessionService sessionService;
 
 	@Autowired
-	public AuthenticationFilter(AccountRepository repository) {
+	public AuthenticationFilter(AccountRepository repository,
+			SecurityContext securityContext, SessionService sessionService) {
 		this.repository = repository;
+		this.securityContext = securityContext;
+		this.sessionService = sessionService;
 	}
 
 	@Override
@@ -41,22 +49,33 @@ public class AuthenticationFilter implements Filter {
 		
 		if (checkEndPoints(request.getMethod(), request.getServletPath())
 				&& !request.getServletPath().matches("/forum/posts/\\w+/?")) {
-			String token = request.getHeader("Authorization");
-			if (token == null) {
-				response.sendError(401, "Header Authorization not found");
-				return;
-			}
-			String[] credentials = getCredentials(token);
-			Account userAccount = repository.findById(credentials[0]).orElse(null);
+			String sessionId = request.getSession().getId();
+			Account userAccount = sessionService.getUser(sessionId);
 			if (userAccount == null) {
-				response.sendError(401, "User not found");
-				return;
-			}
-			if (!BCrypt.checkpw(credentials[1], userAccount.getPassword())) {
-				response.sendError(401, "User or password not valid");
-				return;
+				String token = request.getHeader("Authorization");
+				if (token == null) {
+					response.sendError(401, "Header Authorization not found");
+					return;
+				}
+				String[] credentials = getCredentials(token);
+				userAccount = repository.findById(credentials[0]).orElse(null);
+				if (userAccount == null) {
+					response.sendError(401, "User not found");
+					return;
+				}
+				if (!BCrypt.checkpw(credentials[1], userAccount.getPassword())) {
+					response.sendError(401, "User or password not valid");
+					return;
+				}
+				sessionService.addUser(sessionId, userAccount);
 			}
 			request = new WrapperRequest(request, userAccount.getLogin());
+			UserProfile userProfile = UserProfile.builder()
+					.login(userAccount.getLogin())
+					.password(userAccount.getPassword())
+					.roles(userAccount.getRoles())
+					.build();
+			securityContext.addUser(userProfile);
 		}
 		chain.doFilter(request, response);
 	}
